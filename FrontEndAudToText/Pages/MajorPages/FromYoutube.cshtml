@@ -1,0 +1,52 @@
+﻿@page
+@model FrontEndAudToText.Pages.MajorPages.FromYoutubeModel
+@{
+}
+
+<form method="post">
+    <div>
+        <label for="ytUrl">YouTube URL:</label>
+        <input type="text" name="ytUrl" />
+    </div>
+    <button type="submit" asp-page-handler="Transcribe">Submit</button>
+</form>
+
+@if (!string.IsNullOrEmpty(Model.Result))
+{
+    <div>
+        <h3>API Response:</h3>
+        <p>@Model.Result</p>
+    </div>
+
+
+    <form method="post">
+        <div>
+            <label for="ytUrl">Search For Specific Word:</label>
+            <input type="text" name="word" />
+        </div>
+        <button type="submit" asp-page-handler="SearchWord">Search</button>
+    </form>
+
+    @if (Model.SearchResults != null && Model.SearchResults.Count > 0)
+    {
+        <table>
+            <thead>
+                <tr>
+                    <th>Start</th>
+
+                    <th>Text</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var item in Model.SearchResults)
+                {
+                    <tr>
+                        <td>@item.start</td>
+
+                        <td>@item.text</td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    }
+}
