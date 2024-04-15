@@ -7,25 +7,21 @@ namespace TrVidAndAudToTxt.Services
 {
     public class AssemblyAILayer
     {
-
-        private readonly ResultService _result;
+        private readonly ResultService _resultService;
         private readonly IConfiguration _iconfig;
 
         public AssemblyAILayer(ResultService res,IConfiguration iconfig)
         {
-
-            _result = res;
+            _resultService = res;
             _iconfig = iconfig;
         }
-        // handler method to handle whole process
+        
         public async Task<string?> ProcessHandler(string filePath)
         {
-            string api_key =_iconfig.GetSection("ApiKey")["apiKeyForAI"];
+            string? api_key =_iconfig.GetSection("ApiKey")["apiKeyForAI"];
             HttpClient clientApi = new HttpClient();
             clientApi.BaseAddress = new Uri("https://api.assemblyai.com/v2/");
             clientApi.DefaultRequestHeaders.Add("authorization", api_key);
-
-            //any method to return filePath- 
 
             string? downloadstr = await SendFile(clientApi, filePath);
             string? transcripedId;
@@ -33,37 +29,48 @@ namespace TrVidAndAudToTxt.Services
             if (downloadstr != null)
             {
                 transcripedId = await Transcript(downloadstr, clientApi);
-
             }
             else
             {
                 return null;
             }
-            int attempts = 0;
+            
+            DateTime startPoint= DateTime.Now;
 
-            while (attempts < 5)
+            DateTime endPoint = startPoint.AddSeconds(50);
+
+
+            if(!String.IsNullOrEmpty(transcripedId))
             {
-                string? status = await GetStatus(transcripedId, clientApi);
-                if (status == "completed")
+                while (DateTime.Now<endPoint)
                 {
-                    TranscribeResponse? resp = await GetTransCriptionViaId(transcripedId, clientApi);
-                    if (resp != null)
+                    string? status = await GetStatus(transcripedId, clientApi);
+                  
+                    if(!String.IsNullOrEmpty(status) && status.Equals("completed"))
                     {
-                        _result.SetRes(resp);
-                        return resp.Text;
+                        TranscribeResponse? resp = await GetTransCriptionViaId(transcripedId, clientApi);
+                        if (resp != null)
+                        {
+                            _resultService.SetRes(resp);
+                            return resp.Text;
+                        }
+                        else
+                        {
+                            return "nothing to return";
+                        }
                     }
-                    else
-                    {
-                        return null;
-                    }
+                    await Task.Delay(3000);
+                    
+                   
                 }
-                await Task.Delay(3000);// dat 1 min?? DateTime
-                attempts++;
+                return "Unable to reach the Server";
             }
-            return "Unable to reach the Server";
-
+            else
+            {
+                return "Id is null";
+            }
         }
-        // upload to server assembly ai
+        // 
         private async Task<string?> SendFile(HttpClient cl, string filePath)
         {
             using (FileStream fileStream = File.OpenRead(filePath))
@@ -78,7 +85,6 @@ namespace TrVidAndAudToTxt.Services
                     return jsonDoc?.RootElement.GetProperty("upload_url").GetString();
                 }
             }
-
         }
 
         private async Task<string?> Transcript(string uplUrl, HttpClient client)
@@ -98,12 +104,10 @@ namespace TrVidAndAudToTxt.Services
             {
                 return null;
             }
-
-
         }
-        private async Task<TranscribeResponse?> GetTransCriptionViaId(string? idIssue, HttpClient client)
+        private async Task<TranscribeResponse?> GetTransCriptionViaId(string idIssue, HttpClient client)
         {
-            if (idIssue != null && client != null)
+            if (!String.IsNullOrEmpty(idIssue) && client != null)
             {
                 HttpResponseMessage responseMess = await client.GetAsync("https://api.assemblyai.com/v2/transcript/" + idIssue);
                 responseMess.EnsureSuccessStatusCode();
@@ -115,12 +119,11 @@ namespace TrVidAndAudToTxt.Services
             {
                 return null;
             }
-
         }
 
-        private async Task<string?> GetStatus(string? id, HttpClient client)
+        private async Task<string?> GetStatus(string id, HttpClient client)
         {
-            if (id != null && client != null)
+            if (!String.IsNullOrEmpty(id) && client != null)
             {
                 HttpResponseMessage responseMess = await client.GetAsync("https://api.assemblyai.com/v2/transcript/" + id);
                 responseMess.EnsureSuccessStatusCode();
@@ -148,7 +151,7 @@ namespace TrVidAndAudToTxt.Services
         {
             if (!string.IsNullOrEmpty(req))
             {
-                TranscribeResponse resp = _result.GetRes();
+                TranscribeResponse resp = _resultService.GetRes();
                 List<WordResp>? result = resp.Words.Where(w => w.text.Contains(req)).ToList();
                 List<ConvertedWordResponse> convResp = new List<ConvertedWordResponse>();
                 foreach (var wordResp in result)
@@ -157,7 +160,7 @@ namespace TrVidAndAudToTxt.Services
                     float ev = wordResp.end / 1000f;
                     convResp.Add(new ConvertedWordResponse
                     {
-                        start = sv,
+                        start = (int)sv,
                         end = ev,
                         text = wordResp.text
                     });

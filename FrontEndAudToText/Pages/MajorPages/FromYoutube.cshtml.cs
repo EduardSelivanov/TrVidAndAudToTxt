@@ -39,6 +39,7 @@ namespace FrontEndAudToText.Pages.MajorPages
         {
             if (!String.IsNullOrEmpty(YtURL))
             {
+                _saveSer.SetUrl(YtURL);
                 Result = await _commTool.GetTextFromYouTube(YtURL);
                 _saveSer.SetText(Result);
             }
@@ -47,6 +48,7 @@ namespace FrontEndAudToText.Pages.MajorPages
         {
             if (word != null)
             {
+                YtURL = _saveSer.GetUrl();
                 SearchResults = await _commTool.GetSearchResults(word);
                 Result = _saveSer.GetText();
             }
